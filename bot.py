@@ -1,6 +1,6 @@
 """
 bot.py - Ponto de entrada do Telegram Learning Agent Bot.
-Hibrido: menus inline + agente conversacional com IA + audio.
+Versao original com menus inline.
 """
 
 import os
@@ -38,12 +38,6 @@ from handlers.flashcards import (
 )
 from handlers.search import show_stats, get_search_conv_handler
 
-from handlers.agent import (
-    handle_text_message, handle_voice_message, handle_audio_callback,
-    handle_audio_edit, handle_edit_callback, handle_edit_text,
-    handle_save_entry_callback
-)
-
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -56,15 +50,16 @@ if not TELEGRAM_TOKEN:
 
 
 WELCOME_TEXT = (
-    "\U0001f9e0 *Learning Agent*\n\n"
-    "Sou seu agente pessoal de aprendizado.\n\n"
-    "*Converse comigo naturalmente:*\n"
-    "\U0001f4da _\"Adicionar o livro Sapiens\"_\n"
-    "\U0001f4ac _\"Salvar citacao: O homem e...\"_\n"
-    "\U0001f4a1 _\"Aprendi no podcast que...\"_\n"
-    "\U0001f50d _\"Buscar sobre produtividade\"_\n"
-    "\U0001f399 Ou envie um *audio* que eu transcrevo!\n\n"
-    "*Ou use os menus abaixo:*"
+    "\U0001f9e0 *Learning Agent \u2014 Seu Assistente de Aprendizado*\n\n"
+    "Ol\u00e1! Sou seu agente pessoal para organizar leituras, estudos e aprendizados.\n\n"
+    "*O que posso fazer:*\n\n"
+    "\U0001f4da *Biblioteca* \u2014 Gerencie livros, salve cita\u00e7\u00f5es, resumos e ideias\n"
+    "\U0001f393 *Estudos* \u2014 Organize cursos e t\u00f3picos com anota\u00e7\u00f5es e conceitos\n"
+    "\U0001f4a1 *Insights* \u2014 Capture aprendizados de podcasts, conversas, artigos\n"
+    "\U0001f0cf *Flashcards* \u2014 Revis\u00e3o espa\u00e7ada com IA para fixar conhecimento\n"
+    "\U0001f50d *Busca* \u2014 Encontre qualquer coisa que voc\u00ea salvou\n"
+    "\U0001f916 *IA* \u2014 Resumos autom\u00e1ticos, conex\u00f5es entre ideias e flashcards\n\n"
+    "Escolha uma op\u00e7\u00e3o abaixo para come\u00e7ar:"
 )
 
 
@@ -75,21 +70,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from handlers.agent import _handle_help
-    await _handle_help(update, context)
-
-
-async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Roteia mensagens de texto: edicao pendente > audio edit > agente IA."""
-    if await handle_edit_text(update, context):
-        return
-    if await handle_audio_edit(update, context):
-        return
-    await handle_text_message(update, context)
+    text = (
+        "\U0001f4d6 *Comandos Dispon\u00edveis*\n\n"
+        "/start \u2014 Menu principal\n"
+        "/livros \u2014 Biblioteca de livros\n"
+        "/estudos \u2014 Caderno de estudos\n"
+        "/insights \u2014 Insights e aprendizados\n"
+        "/flashcards \u2014 Revisar flashcards\n"
+        "/buscar \u2014 Busca global\n"
+        "/stats \u2014 Estat\u00edsticas\n"
+        "/ajuda \u2014 Esta mensagem\n\n"
+        "\U0001f4a1 *Dicas:*\n"
+        "\u2022 Use /pular para pular campos opcionais\n"
+        "\u2022 Use /cancelar para cancelar qualquer opera\u00e7\u00e3o\n"
+        "\u2022 A IA gera flashcards e insights automaticamente"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def main_callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Roteia todos os callbacks inline."""
+    """Roteia callbacks que nao sao capturados pelos ConversationHandlers."""
     query = update.callback_query
     data = query.data
 
@@ -108,21 +108,8 @@ async def main_callback_router(update: Update, context: ContextTypes.DEFAULT_TYP
         await flashcards_menu(update, context)
     elif data == "menu_stats":
         await show_stats(update, context)
-    elif data == "menu_search":
-        await query.answer()
-        await query.edit_message_text("\U0001f50d Digite o que deseja buscar:")
 
-    elif data.startswith("audio_"):
-        await handle_audio_callback(update, context)
-
-    elif data.startswith("save_entry_") or data.startswith("save_snote_"):
-        await handle_save_entry_callback(update, context)
-
-    elif data.startswith("edit_bentry_") or data.startswith("del_bentry_") or \
-         data.startswith("del_snote_") or data.startswith("del_insight_") or \
-         data.startswith("del_book_") or data.startswith("del_study_"):
-        await handle_edit_callback(update, context)
-
+    # Livros
     elif data.startswith("book_list_"):
         await book_list(update, context)
     elif data.startswith("book_detail_"):
@@ -146,6 +133,7 @@ async def main_callback_router(update: Update, context: ContextTypes.DEFAULT_TYP
     elif data.startswith("entries_"):
         await entry_list_view(update, context)
 
+    # Estudos
     elif data.startswith("study_list_"):
         await study_list(update, context)
     elif data.startswith("study_detail_"):
@@ -161,11 +149,13 @@ async def main_callback_router(update: Update, context: ContextTypes.DEFAULT_TYP
     elif data.startswith("study_ai_flashcards_"):
         await study_ai_flashcards(update, context)
 
+    # Insights
     elif data.startswith("insight_list_"):
         await insight_list(update, context)
     elif data == "insight_ai_connect":
         await insight_ai_connect(update, context)
 
+    # Flashcards
     elif data == "fc_review":
         await fc_review_start(update, context)
     elif data.startswith("fc_show_"):
@@ -173,13 +163,14 @@ async def main_callback_router(update: Update, context: ContextTypes.DEFAULT_TYP
     elif data.startswith("fc_diff_"):
         await fc_rate_difficulty(update, context)
 
+    # Confirmacoes de exclusao
     elif data.startswith("confirm_del_book_"):
         await book_delete_execute(update, context)
     elif data.startswith("confirm_del_study_"):
         await study_delete_execute(update, context)
     elif data.startswith("cancel_del_"):
         await query.answer("Cancelado")
-        await query.edit_message_text("\u274c Cancelado.", reply_markup=kb.main_menu())
+        await query.edit_message_text("\u274c Exclus\u00e3o cancelada.", reply_markup=kb.main_menu())
 
 
 def main():
@@ -188,7 +179,7 @@ def main():
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Conversation handlers (menus)
+    # Conversation handlers (devem vir ANTES dos callback genericos)
     app.add_handler(get_book_conv_handler(), group=0)
     app.add_handler(get_entry_conv_handler(), group=0)
     app.add_handler(get_study_conv_handler(), group=0)
@@ -207,18 +198,10 @@ def main():
     app.add_handler(CommandHandler("flashcards", flashcards_menu))
     app.add_handler(CommandHandler("stats", show_stats))
 
-    # Audio/voz
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice_message))
+    # Callback router (captura todos os botoes inline)
+    app.add_handler(CallbackQueryHandler(main_callback_router), group=1)
 
-    # Texto livre -> agente IA
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND, text_router
-    ), group=1)
-
-    # Callback router
-    app.add_handler(CallbackQueryHandler(main_callback_router), group=2)
-
-    logger.info("Bot starting... (modo hibrido: menus + agente IA + audio)")
+    logger.info("Bot starting...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
